@@ -1,0 +1,17 @@
+---
+- name: Installer le serveur DHCP
+  apt:
+    name: isc-dhcp-server
+    state: present
+
+- name: Déployer la configuration DHCP
+  template:
+    src: dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+  notify: Redémarrer DHCP
+
+- name: S'assurer que le service DHCP est démarré
+  service:
+    name: isc-dhcp-server
+    state: started
+    enabled: yes

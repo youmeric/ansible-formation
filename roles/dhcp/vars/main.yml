@@ -1,0 +1,17 @@
+---
+# Variables DHCP
+network: "172.18.0.0"
+netmask: "255.255.0.0"
+range_start: "172.18.100.1"
+range_end: "172.18.100.100"
+dns:
+  - "8.8.8.8"
+  - "8.8.4.4"
+domain: "lab.local"
+reservations:
+  - name: web1
+    mac: "AA:BB:CC:DD:EE:01"
+    ip: "172.18.100.10"
+  - name: web2
+    mac: "AA:BB:CC:DD:EE:02"
+    ip: "172.18.100.20"
