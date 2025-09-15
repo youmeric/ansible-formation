@@ -1,0 +1,49 @@
+---
+- name: Installation et configuration d'un serveur web
+  hosts: webservers
+  become: yes
+
+  vars:
+    page_accueil: /var/www/html/index.html
+    date_configuration: "{{ ansible_date_time.date }}"
+
+  tasks:
+    - name: Installer nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Installer php-fpm
+      apt:
+        name: php-fpm
+        state: present
+
+    - name: Créer la page d'accueil personnalisée
+      copy:
+        dest: "{{ page_accueil }}"
+        content: |
+          <html>
+          <head><title>Accueil</title></head>
+          <body>
+            <h1>Bienvenue sur {{ ansible_hostname }}</h1>
+            <p>Adresse IP : {{ ansible_default_ipv4.address }}</p>
+            <p>Date de configuration : {{ date_configuration }}</p>
+          </body>
+          </html>
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Démarrer et activer nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Démarrer et activer php-fpm
+      service:
+        name: php7.4-fpm
+        state: started
+        enabled: yes
+      ignore_errors: yes  # Pour compatibilité avec différentes versions de PHP-FPM
