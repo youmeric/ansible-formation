@@ -1,0 +1,11 @@
+skip_list:
+  - yaml
+  - var-naming
+  - name[casing]
+  - fqcn-builtins
+warn_list:
+  - experimental
+  - command-instead-of-module
+exclude_paths:
+  - docker/
+  - .github/
