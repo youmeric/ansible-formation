@@ -1,0 +1,6 @@
+---
+collections:
+  - community.mysql
+  - ansible.posix
+  - community.general
+  - community.docker

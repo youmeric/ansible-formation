@@ -1,0 +1,46 @@
+{% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
+user www-data;
+worker_processes {{ _ng.worker_processes }};
+pid /run/nginx.pid;
+
+events {
+  worker_connections {{ _ng.worker_connections }};
+}
+
+http {
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout {{ _ng.keepalive_timeout }};
+  types_hash_max_size 2048;
+
+  {% if _ng.gzip %}
+  gzip on;
+  gzip_comp_level 5;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+  {% else %}
+  gzip off;
+  {% endif %}
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log;
+
+  server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    location /health {
+      return 200 'ok';
+    }
+
+    location / {
+      return 200 "web: {{ inventory_hostname }} (id={{ hostvars[inventory_hostname].server_id | default('n/a') }})\n";
+    }
+  }
+
+  include /etc/nginx/sites-enabled/*;
+}

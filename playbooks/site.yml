@@ -1,0 +1,43 @@
+---
+- name: Pré-tâches et vérifications globales
+  hosts: all
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Vérifier RAM minimale
+      assert:
+        that: ansible_memtotal_mb >= 512
+        fail_msg: "Mémoire insuffisante (<512MB)"
+
+    - name: Vérifier architecture supportée
+      assert:
+        that: ansible_architecture in ['x86_64','aarch64']
+        fail_msg: "Architecture non supportée"
+
+    - name: Mettre à jour l'index apt
+      apt:
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+
+    - name: Installer paquets communs
+      package:
+        name: "{{ packages_common }}"
+        state: present
+
+    - name: Créer groupe applicatif
+      group:
+        name: "{{ app_group }}"
+        state: present
+
+    - name: Créer utilisateur applicatif
+      user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        create_home: yes
+        shell: /bin/bash
+
+  roles: []
+
+- import_playbook: web.yml
+- import_playbook: db.yml
+- import_playbook: lb.yml

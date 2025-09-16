@@ -1,0 +1,10 @@
+nginx:
+  vhosts:
+    - server_name: "app1.{{ domain }}"
+      listen: 80
+      proxy_pass: "http://127.0.0.1:8080"
+      ssl: "{{ ssl.enabled }}"
+    - server_name: "app2.{{ domain }}"
+      listen: 80
+      proxy_pass: "http://127.0.0.1:8081"
+      ssl: "{{ ssl.enabled }}"

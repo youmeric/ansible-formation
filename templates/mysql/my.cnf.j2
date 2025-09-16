@@ -1,0 +1,25 @@
+{% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
+[mysqld]
+user = mysql
+pid-file = /run/mysqld/mysqld.pid
+socket = /run/mysqld/mysqld.sock
+datadir = /var/lib/mysql
+bind-address = 0.0.0.0
+
+max_connections = {{ _mysql.max_connections | default(151) }}
+slow_query_log = {{ 1 if _mysql.slow_query_log else 0 }}
+
+# Ajustement dynamique du buffer pool selon mémoire
+{% set mem_mb = (resources.memory_mb | default(ansible_memtotal_mb | default(1024))) | int %}
+{% set buf_pct = (_mysql.innodb_buffer_pool_size_percent | default(50)) | int %}
+{% set buf_mb = (mem_mb * buf_pct / 100) | int %}
+innodb_buffer_pool_size = {{ buf_mb }}M
+
+log_error = /var/log/mysql/error.log
+
+# Réplication optionnelle
+{% if _mysql.replication is defined and _mysql.replication.enabled %}
+server_id = {{ hostvars[inventory_hostname].server_id | default(1) }}
+log_bin = /var/log/mysql/mysql-bin.log
+binlog_do_db = appdb
+{% endif %}

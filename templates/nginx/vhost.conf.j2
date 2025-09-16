@@ -1,0 +1,27 @@
+# Virtual hosts générés dynamiquement
+{% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
+server {
+  listen 80;
+  server_name _;
+  location / {
+    return 200 "vhost OK on {{ inventory_hostname }}\n";
+  }
+}
+
+{% for v in _ng.vhosts | default([]) %}
+server {
+  listen {{ v.listen | default(80) }};
+  server_name {{ v.server_name }};
+
+  {% if v.ssl %}
+  return 301 https://$host$request_uri;
+  {% else %}
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_pass {{ v.proxy_pass }};
+  }
+  {% endif %}
+}
+{% endfor %}

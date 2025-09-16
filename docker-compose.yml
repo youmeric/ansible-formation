@@ -1,0 +1,61 @@
+version: '3.8'
+
+networks:
+  ansinet:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+  web1:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.base
+    container_name: web1
+    hostname: web1
+    networks:
+      ansinet:
+        ipv4_address: 172.28.0.11
+    ports:
+      - "8081:80"
+    privileged: true
+
+  web2:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.base
+    container_name: web2
+    hostname: web2
+    networks:
+      ansinet:
+        ipv4_address: 172.28.0.12
+    ports:
+      - "8082:80"
+    privileged: true
+
+  db1:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.base
+    container_name: db1
+    hostname: db1
+    networks:
+      ansinet:
+        ipv4_address: 172.28.0.13
+    ports:
+      - "3306:3306"
+    privileged: true
+
+  lb1:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.base
+    container_name: lb1
+    hostname: lb1
+    networks:
+      ansinet:
+        ipv4_address: 172.28.0.14
+    ports:
+      - "80:80"
+      - "8404:8404"
+    privileged: true

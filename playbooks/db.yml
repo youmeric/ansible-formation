@@ -1,0 +1,99 @@
+---
+- name: Déploiement MySQL
+  hosts: db
+  gather_facts: yes
+
+  vars:
+    _mysql_vars: "{{ mysql_defaults | default({}) | combine(mysql | default({}), recursive=True) }}"
+    mysql_root_password: "{{ _mysql_vars.root_password }}"
+
+  tasks:
+    - name: Dépendances Python MySQL
+      apt:
+        name: python3-pymysql
+        state: present
+        update_cache: yes
+
+    - name: Installer MySQL Server
+      apt:
+        name: mysql-server
+        state: present
+        update_cache: yes
+
+    - name: Démarrer et activer MySQL
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+      ignore_errors: yes
+
+    - name: Créer répertoire socket mysqld
+      file:
+        path: /run/mysqld
+        state: directory
+        owner: mysql
+        group: mysql
+        mode: "0755"
+
+    - name: Démarrer mysqld en mode daemon si non lancé
+      shell: |
+        pgrep -x mysqld >/dev/null 2>&1 || mysqld --daemonize --pid-file=/run/mysqld/mysqld.pid
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Attendre que MySQL réponde
+      shell: mysqladmin ping --silent
+      register: mysql_ping
+      retries: 20
+      delay: 1
+      until: mysql_ping.rc == 0
+      changed_when: false
+
+    - name: Déployer my.cnf
+      template:
+        src: "../templates/mysql/my.cnf.j2"
+        dest: "/etc/mysql/mysql.conf.d/99-custom.cnf"
+        mode: "0644"
+      notify: Restart mysql
+
+    - name: Sécuriser root (mot de passe)
+      command: mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{ mysql_root_password }}'; FLUSH PRIVILEGES;"
+      args:
+        creates: /root/.mysql_root_secured
+      register: secure_root
+      changed_when: secure_root.rc == 0
+      failed_when: secure_root.rc not in [0]
+
+    - name: Marquer sécurisation
+      file:
+        path: /root/.mysql_root_secured
+        state: touch
+      when: secure_root is changed
+
+    - name: Créer DBs
+      mysql_db:
+        name: "{{ item.name }}"
+        encoding: "{{ item.encoding | default('utf8mb4') }}"
+        collation: "{{ item.collation | default('utf8mb4_unicode_ci') }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      loop: "{{ _mysql_vars.databases }}"
+
+    - name: Créer utilisateurs
+      mysql_user:
+        name: "{{ item.name }}"
+        password: "{{ item.password }}"
+        priv: "{{ item.priv }}"
+        host: "%"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      loop: "{{ _mysql_vars.users }}"
+
+  handlers:
+    - name: Restart mysql
+      service:
+        name: mysql
+        state: restarted

@@ -1,0 +1,34 @@
+global
+  log /dev/log local0
+  log /dev/log local1 notice
+  daemon
+  maxconn 4096
+
+defaults
+  log global
+  mode http
+  option httplog
+  option dontlognull
+  timeout connect 5s
+  timeout client  50s
+  timeout server  50s
+
+frontend http-in
+  bind *:80
+  default_backend web-backend
+
+{% if haproxy.stats.enabled %}
+frontend stats
+  bind {{ haproxy.stats.bind }}
+  stats enable
+  stats uri /
+  stats auth {{ haproxy.stats.user }}:{{ haproxy.stats.pass }}
+{% endif %}
+
+backend web-backend
+  balance {{ haproxy.balance | default('roundrobin') }}
+  option httpchk GET /health
+  http-check expect status 200
+  {% for h in groups['web'] %}
+  server {{ h }} {{ h }}:80 check inter {{ haproxy.health_check.interval }}ms fall {{ haproxy.health_check.fall }} rise {{ haproxy.health_check.rise }}
+  {% endfor %}

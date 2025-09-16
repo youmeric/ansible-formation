@@ -1,0 +1,12 @@
+haproxy:
+  balance: leastconn
+  stats:
+    enabled: true
+    bind: 0.0.0.0:8404
+    user: admin
+    pass: admin
+  health_check:
+    interval: 2000
+    fall: 3
+    rise: 2
+    timeout: 2000

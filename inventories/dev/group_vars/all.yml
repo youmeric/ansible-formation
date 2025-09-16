@@ -1,0 +1,63 @@
+env: dev
+domain: example.local
+app_user: app
+app_group: app
+ssh_public_key: ""
+security:
+  ufw_enabled: false
+  allow_ssh_from: 0.0.0.0/0
+  fail2ban_enabled: false
+
+packages_common:
+  - curl
+  - vim
+  - ca-certificates
+
+# Ressources par hôte (peuvent être overrides dans host_vars)
+resources:
+  memory_mb: 1024
+  cpu_cores: 2
+
+# Paramètres communs
+ssl:
+  enabled: false
+  email: admin@example.local
+
+nginx_defaults:
+  worker_processes: auto
+  worker_connections: 1024
+  keepalive_timeout: 65
+  gzip: true
+  vhosts: []
+
+# Overrides/ajouts propres aux groupes/hôtes (laisser vide ici)
+nginx: {}
+
+mysql_defaults:
+  root_password: "rootpass"
+  databases:
+    - name: appdb
+      encoding: utf8mb4
+      collation: utf8mb4_unicode_ci
+  users:
+    - name: appuser
+      password: apppass
+      priv: "appdb.*:ALL"
+  replication:
+    enabled: false
+
+# Overrides/ajouts MySQL
+mysql: {}
+
+haproxy:
+  stats:
+    enabled: true
+    bind: 0.0.0.0:8404
+    user: admin
+    pass: admin
+  balance: roundrobin
+  health_check:
+    interval: 2000
+    fall: 3
+    rise: 2
+    timeout: 2000

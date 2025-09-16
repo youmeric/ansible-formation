@@ -1,0 +1,58 @@
+---
+- name: Déploiement HAProxy backends dynamiques
+  hosts: lb
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Vérifier présence de serveurs web
+      assert:
+        that: groups['web'] | length > 0
+        fail_msg: "Aucun serveur web dans l'inventaire"
+
+  tasks:
+    - name: Installer HAProxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+
+    - name: Générer config HAProxy
+      template:
+        src: "../templates/haproxy/haproxy.cfg.j2"
+        dest: "/etc/haproxy/haproxy.cfg"
+        mode: "0644"
+      notify: Restart haproxy
+
+    - name: Démarrer et activer haproxy
+      service:
+        name: haproxy
+        state: started
+        enabled: yes
+
+    - name: Tester répartition de charge
+      uri:
+        url: "http://localhost"
+        return_content: yes
+      register: lb_http
+      retries: 5
+      delay: 2
+      until: lb_http.status == 200
+
+    - name: Boucle de requêtes pour observer la distribution
+      uri:
+        url: "http://localhost"
+        return_content: yes
+      register: lb_samples
+      loop: "{{ range(0,6)|list }}"
+      changed_when: false
+
+    - name: Afficher les réponses distinctes
+      debug:
+        msg: "Réponse {{ item.item }} -> {{ item.content | trim }}"
+      loop: "{{ lb_samples.results }}"
+
+  handlers:
+    - name: Restart haproxy
+      service:
+        name: haproxy
+        state: restarted
