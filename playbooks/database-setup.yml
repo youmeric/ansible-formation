@@ -1,71 +1,123 @@
 ---
-- name: TP DB simplifié avec SQLite (aucun service requis)
+- name: TP MySQL simple (sans modifier ton docker-compose)
   hosts: databases
-  become: yes
+  gather_facts: false
 
   vars:
-    sqlite_pkg: sqlite3
-    db_dir: /opt/demo-db
-    db_file: "{{ db_dir }}/demo_tp.sqlite"
-    init_sql: "{{ db_dir }}/init.sql"
+    # MySQL sera installé et démarré localement sur l'hôte db1 (sans systemd)
+    mysql_login_host: "127.0.0.1"
+    mysql_login_port: 3306
+    mysql_root_user: "root"
+    mysql_root_password: "rootpass"
 
-  tasks:
-    - name: Installer sqlite3 (client + moteur)
+    # Objet du TP
+    db_name: "demo_tp"
+    db_user: "demo"
+    db_pass: "demopass"
+
+  pre_tasks:
+    - name: Installer MariaDB et dépendances (sur db1)
       apt:
-        name: "{{ sqlite_pkg }}"
+        name:
+          - mariadb-server
+          - mariadb-client
+          - python3-pymysql
         state: present
         update_cache: yes
+      become: yes
 
-    - name: Créer le répertoire de la base
+    - name: Préparer le dossier de socket MySQL
       file:
-        path: "{{ db_dir }}"
+        path: /run/mysqld
         state: directory
+        owner: mysql
+        group: mysql
         mode: '0755'
+      become: yes
 
-    - name: Déposer le script d'initialisation SQL (idempotent)
-      copy:
-        dest: "{{ init_sql }}"
-        mode: '0644'
-        content: |
-          -- Création d'une table simple
-          CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            role TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
-          );
-
-          -- Insertion de données de démo (ignore les doublons)
-          INSERT OR IGNORE INTO users (id, username, role) VALUES
-            (1, 'webmaster', 'admin'),
-            (2, 'appuser', 'app'),
-            (3, 'monitoring', 'ops');
-
-    - name: Créer la base si absente
-      command: "sqlite3 {{ db_file }} '.databases'"
+    - name: Démarrer MariaDB (environnement sans systemd)
+      shell: |
+        set -e
+        if ! pgrep -x mysqld >/dev/null; then
+          mysqld_safe --datadir=/var/lib/mysql \
+                      --pid-file=/run/mysqld/mysqld.pid \
+                      --socket=/run/mysqld/mysqld.sock \
+                      --bind-address=127.0.0.1 &
+          sleep 5
+        fi
       args:
-        creates: "{{ db_file }}"
+        executable: /bin/bash
+      become: yes
 
-    - name: Appliquer le script d'init (safe ré-exécutable)
-      command: "sqlite3 {{ db_file }} < {{ init_sql }}"
-      args:
-        chdir: "{{ db_dir }}"
-      changed_when: false  # le script est idempotent (IF NOT EXISTS / OR IGNORE)
+    - name: Attendre que MySQL réponde en local
+      wait_for:
+        host: "{{ mysql_login_host }}"
+        port: "{{ mysql_login_port }}"
+        delay: 2
+        timeout: 60
 
-    - name: Vérifier la structure
-      command: "sqlite3 {{ db_file }} '.schema users'"
-      register: users_schema
+  tasks:
+    - name: Vérifier l'accès root via mot de passe
+      community.mysql.mysql_info:
+        login_unix_socket: /run/mysqld/mysqld.sock
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+      register: root_pw_ok
       changed_when: false
+      failed_when: false
 
-    - name: Afficher la structure de la table 'users'
+    - name: Définir le mot de passe root via socket local (si non défini)
+      community.mysql.mysql_user:
+        name: "{{ mysql_root_user }}"
+        host: localhost
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+        state: present
+      become: yes
+      when: root_pw_ok.version is not defined
+
+    - name: Créer la base {{ db_name }}
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Créer l'utilisateur {{ db_user }} avec droits sur {{ db_name }}
+      community.mysql.mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_pass }}"
+        host: "%"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Vérifier les bases
+      community.mysql.mysql_query:
+        login_unix_socket: /run/mysqld/mysqld.sock
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+        query: "SHOW DATABASES;"
+      register: dbs
+
+    - name: Afficher les bases renvoyées par MySQL
       debug:
-        msg: "{{ users_schema.stdout_lines }}"
+        var: dbs.query_result
+      delegate_to: localhost
 
-    - name: Lister les lignes insérées
-      command: "sqlite3 -header -csv {{ db_file }} 'SELECT id,username,role,created_at FROM users ORDER BY id;'"
-      register: users_rows
-      changed_when: false
+    - name: Test de connexion avec l'utilisateur applicatif
+      community.mysql.mysql_query:
+        login_unix_socket: /run/mysqld/mysqld.sock
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_pass }}"
+        query: "SELECT CURRENT_USER() AS whoami;"
+      register: whoami
 
-    - name: Afficher les données 'users'
+    - name: Afficher le user MySQL utilisé
       debug:
-        msg: "{{ users_rows.stdout_lines }}"
+        var: whoami.query_result
+      delegate_to: localhost

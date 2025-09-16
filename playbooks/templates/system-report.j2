@@ -1,0 +1,23 @@
+# Rapport de configuration — {{ inventory_hostname }}
+
+- Environnement: {{ environment | default('production') }}
+- Rôle serveur: {{ server_role | default('generic') }}
+- Adresse: {{ ansible_host | default(inventory_hostname) }}
+
+## Utilisateurs applicatifs
+{% set users = app_users | default([]) %}
+{% if users|length > 0 %}
+{% for u in users %}- {{ u.username }}{% if u.comment is defined and u.comment %} — {{ u.comment }}{% endif %}
+{% endfor %}
+{% else %}
+- Aucun défini
+{% endif %}
+
+## Vérification système
+```
+{% if system_status is defined %}
+{{ system_status.stdout | default(system_status.stdout_lines | join('\n')) }}
+{% else %}
+N/A (system_status non défini)
+{% endif %}
+```
