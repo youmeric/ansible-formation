@@ -1,0 +1,71 @@
+---
+- name: TP DB simplifié avec SQLite (aucun service requis)
+  hosts: databases
+  become: yes
+
+  vars:
+    sqlite_pkg: sqlite3
+    db_dir: /opt/demo-db
+    db_file: "{{ db_dir }}/demo_tp.sqlite"
+    init_sql: "{{ db_dir }}/init.sql"
+
+  tasks:
+    - name: Installer sqlite3 (client + moteur)
+      apt:
+        name: "{{ sqlite_pkg }}"
+        state: present
+        update_cache: yes
+
+    - name: Créer le répertoire de la base
+      file:
+        path: "{{ db_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Déposer le script d'initialisation SQL (idempotent)
+      copy:
+        dest: "{{ init_sql }}"
+        mode: '0644'
+        content: |
+          -- Création d'une table simple
+          CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            role TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now'))
+          );
+
+          -- Insertion de données de démo (ignore les doublons)
+          INSERT OR IGNORE INTO users (id, username, role) VALUES
+            (1, 'webmaster', 'admin'),
+            (2, 'appuser', 'app'),
+            (3, 'monitoring', 'ops');
+
+    - name: Créer la base si absente
+      command: "sqlite3 {{ db_file }} '.databases'"
+      args:
+        creates: "{{ db_file }}"
+
+    - name: Appliquer le script d'init (safe ré-exécutable)
+      command: "sqlite3 {{ db_file }} < {{ init_sql }}"
+      args:
+        chdir: "{{ db_dir }}"
+      changed_when: false  # le script est idempotent (IF NOT EXISTS / OR IGNORE)
+
+    - name: Vérifier la structure
+      command: "sqlite3 {{ db_file }} '.schema users'"
+      register: users_schema
+      changed_when: false
+
+    - name: Afficher la structure de la table 'users'
+      debug:
+        msg: "{{ users_schema.stdout_lines }}"
+
+    - name: Lister les lignes insérées
+      command: "sqlite3 -header -csv {{ db_file }} 'SELECT id,username,role,created_at FROM users ORDER BY id;'"
+      register: users_rows
+      changed_when: false
+
+    - name: Afficher les données 'users'
+      debug:
+        msg: "{{ users_rows.stdout_lines }}"

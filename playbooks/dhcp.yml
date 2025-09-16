@@ -1,6 +1,0 @@
----
-- name: Configuration du serveur DHCP sur db1
-  hosts: db1
-  become: yes
-  roles:
-    - dhcp

@@ -1,0 +1,136 @@
+---
+- name: Configuration complète des serveurs web (compatible conteneur)
+  hosts: webservers
+  become: yes
+
+  vars:
+    web_user: www-data
+    web_port: 80
+    document_root: /var/www/html
+    site_name: "formation-ansible"
+    nginx_sites:
+      - name: default
+        port: 80
+        root: /var/www/html
+      - name: app
+        port: 8080
+        root: /var/www/app
+
+  tasks:
+    - name: Installer Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Installer PHP-FPM et modules
+      apt:
+        name:
+          - php-fpm
+          - php-mysql
+          - php-curl
+          - php-json
+        state: present
+
+    - name: Créer les répertoires web
+      file:
+        path: "{{ item.root }}"
+        state: directory
+        owner: "{{ web_user }}"
+        group: "{{ web_user }}"
+        mode: '0755'
+      loop: "{{ nginx_sites }}"
+
+    - name: Page d'accueil dynamique
+      copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="utf-8" />
+              <title>{{ site_name }} - {{ inventory_hostname }}</title>
+              <style>
+                body{font-family:Arial;margin:40px;background:#f0f0f0}
+                .container{background:#fff;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+                .server-info{background:#e7f3ff;padding:15px;border-radius:5px;margin:20px 0}
+                .timestamp{color:#666;font-size:.9em}
+              </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🚀 Serveur {{ inventory_hostname }}</h1>
+              <div class="server-info">
+                <strong>Rôle:</strong> {{ server_role }}<br>
+                <strong>Environnement:</strong> {{ environment }}<br>
+                <strong>Groupe:</strong> {{ group_names[0] }}
+              </div>
+              <p>Ce serveur a été configuré automatiquement avec Ansible !</p>
+              <p class="timestamp">Généré le : {{ ansible_date_time.iso8601 }}</p>
+            </div>
+          </body>
+          </html>
+        dest: "{{ document_root }}/index.html"
+        owner: "{{ web_user }}"
+        group: "{{ web_user }}"
+        mode: '0644'
+
+    - name: VHost Nginx personnalisé
+      copy:
+        content: |
+          server {
+            listen {{ web_port }};
+            server_name {{ inventory_hostname }};
+            root {{ document_root }};
+            index index.html index.php;
+
+            access_log /var/log/nginx/{{ inventory_hostname }}_access.log;
+            error_log  /var/log/nginx/{{ inventory_hostname }}_error.log;
+
+            location ~ \.php$ {
+              include snippets/fastcgi-php.conf;
+              fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+            }
+
+            location ~ /\. { deny all; }
+          }
+        dest: "/etc/nginx/sites-available/{{ site_name }}"
+        backup: yes
+
+    - name: Activer le site
+      file:
+        src: "/etc/nginx/sites-available/{{ site_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ site_name }}"
+        state: link
+
+    - name: Désactiver le site par défaut
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    # Adaptation conteneur : démarrage via 'service' en commande
+    - name: Démarrer php-fpm (fallback conteneur)
+      command: service php7.4-fpm start
+      changed_when: false
+      failed_when: false
+
+    - name: Démarrer nginx (fallback conteneur)
+      command: service nginx start
+      changed_when: false
+      failed_when: false
+
+    - name: Vérifier écoute port web
+      wait_for:
+        port: "{{ web_port }}"
+        host: "127.0.0.1"
+        timeout: 10
+
+    - name: Test HTTP local
+      uri:
+        url: "http://127.0.0.1:{{ web_port }}"
+        method: GET
+        status_code: 200
+      register: web_test
+
+    - name: Afficher le code HTTP
+      debug:
+        msg: "Test web OK - status={{ web_test.status }}"

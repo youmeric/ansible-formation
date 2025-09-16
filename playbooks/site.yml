@@ -1,4 +1,55 @@
 ---
-- import_playbook: users.yml
-- import_playbook: webserver.yml
-- import_playbook: database.yml
+# Orchestration complète
+- import_playbook: setup-users.yml
+- import_playbook: webserver-setup.yml
+- import_playbook: database-setup.yml
+
+- name: Configuration finale et tests (compatible conteneur)
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Installer quelques outils de diag
+      apt:
+        name:
+          - iotop
+          - nload
+          - tcpdump
+        state: present
+
+    - name: Activer un log dédié (rsyslog)
+      lineinfile:
+        path: /etc/rsyslog.conf
+        line: "*.info;mail.none;authpriv.none;cron.none /var/log/ansible-managed.log"
+        create: yes
+
+    - name: Script de vérification système (sans systemctl)
+      copy:
+        content: |
+          #!/bin/bash
+          echo "=== Vérification du système {{ inventory_hostname }} ==="
+          echo "Date: $(date)"
+          echo "Uptime: $(uptime)"
+          echo "Utilisateurs connectés: $(who | wc -l)"
+          echo "Espace disque:"; df -h /
+          echo "Mémoire:"; free -h
+          echo "Process web/db/ssh (approx):"
+          ps aux | egrep "nginx|php-fpm|mysqld|ssh" | grep -v egrep
+          echo "================================"
+        dest: /usr/local/bin/system-check.sh
+        mode: '0755'
+
+    - name: Exécuter le check
+      command: /usr/local/bin/system-check.sh
+      register: system_status
+      changed_when: false
+
+    - name: Afficher le statut
+      debug:
+        msg: "{{ system_status.stdout_lines }}"
+
+    - name: Générer le rapport Markdown
+      template:
+        src: system-report.j2
+        dest: /tmp/ansible-config-report.md
+        mode: '0644'

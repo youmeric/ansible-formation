@@ -1,0 +1,36 @@
+# Rapport de Configuration Ansible
+## Serveur: {{ inventory_hostname }}
+
+**Date de génération:** {{ ansible_date_time.iso8601 }}  
+**Configuré par:** Ansible Formation
+
+### Informations Système
+- **OS:** {{ ansible_distribution }} {{ ansible_distribution_version }}
+- **Architecture:** {{ ansible_architecture }}
+- **Hostname:** {{ ansible_hostname }}
+- **IP:** {{ ansible_default_ipv4.address }}
+- **Rôle:** {{ server_role }}
+- **Environnement:** {{ environment }}
+
+### Services/Process attendus
+{% if inventory_hostname in groups['webservers'] -%}
+- Nginx + PHP-FPM
+{%- endif %}
+{% if inventory_hostname in groups['databases'] -%}
+- MySQL Server
+{%- endif %}
+- SSH
+- Rsyslog
+
+### Utilisateurs créés
+{% for user in app_users -%}
+- {{ user.username }} ({{ user.comment }})
+{% endfor %}
+
+### Statistiques
+- **CPU:** {{ ansible_processor_cores }} cores
+- **RAM:** {{ ansible_memtotal_mb }} MB
+- **Disque root:** {{ (ansible_mounts | selectattr('mount','equalto','/') | list)[0].size_total // (1024*1024*1024) if (ansible_mounts | selectattr('mount','equalto','/') | list) else 'N/A' }} GB
+
+---
+*Rapport généré automatiquement par Ansible*

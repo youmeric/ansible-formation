@@ -1,0 +1,63 @@
+---
+- name: Configuration des utilisateurs et outils système
+  hosts: all
+  become: yes
+
+  vars:
+    app_users:
+      - username: webmaster
+        groups: sudo
+        comment: "Administrateur web"
+        shell: /bin/bash
+      - username: appuser
+        groups: ""
+        comment: "Utilisateur applicatif"
+        shell: /bin/bash
+      - username: monitoring
+        groups: ""
+        comment: "Utilisateur monitoring"
+        shell: /bin/bash
+
+    system_tools:
+      - htop
+      - curl
+      - wget
+      - vim
+      - git
+      - tree
+      - net-tools
+
+  tasks:
+    - name: Mise à jour du cache APT
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Installer les outils système
+      apt:
+        name: "{{ system_tools }}"
+        state: present
+
+    - name: Créer le groupe applicatif
+      group:
+        name: appgroup
+        state: present
+
+    - name: Créer les utilisateurs
+      user:
+        name: "{{ item.username }}"
+        groups: "{{ item.groups }},appgroup"
+        comment: "{{ item.comment }}"
+        shell: "{{ item.shell }}"
+        create_home: yes
+        state: present
+      loop: "{{ app_users }}"
+
+    - name: Créer les répertoires de travail
+      file:
+        path: "/home/{{ item.username }}/workspace"
+        state: directory
+        owner: "{{ item.username }}"
+        group: "{{ item.username }}"
+        mode: '0755'
+      loop: "{{ app_users }}"
