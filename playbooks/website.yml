@@ -1,0 +1,59 @@
+---
+- name: Créer répertoire racine du site
+  file:
+    path: /var/www/app/assets
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+    recurse: true
+
+- name: Déployer index HTML (dynamique)
+  template:
+    src: "../templates/website/index.html.j2"
+    dest: "/var/www/app/index.html"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Déployer CSS
+  template:
+    src: "../templates/website/assets/styles.css"
+    dest: "/var/www/app/assets/styles.css"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Déployer JS
+  template:
+    src: "../templates/website/assets/app.js"
+    dest: "/var/www/app/assets/app.js"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+- name: Déployer vhost Nginx stylé
+  template:
+    src: "../templates/nginx/nginx_app.conf.j2"
+    dest: "/etc/nginx/sites-available/app.conf"
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Désactiver le site par défaut s’il existe
+  file:
+    path: "/etc/nginx/sites-enabled/default"
+    state: absent
+  notify: Reload nginx
+
+- name: Activer le site stylé
+  file:
+    src: "/etc/nginx/sites-available/app.conf"
+    dest: "/etc/nginx/sites-enabled/app.conf"
+    state: link
+  notify: Reload nginx
+
+- name: Vérifier la config Nginx
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: nginx_test.rc != 0

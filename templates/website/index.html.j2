@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ site_title | default('Web Stack - Demo') }}</title>
+  <meta name="description" content="Stack web Ansible - Nginx + HAProxy + MySQL">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="bg"></div>
+  <main class="container">
+    <header class="nav">
+      <div class="brand">
+        <span class="logo">⎈</span>
+        <span>{{ site_title | default('Web Stack - Demo') }}</span>
+      </div>
+      <button id="toggle" class="btn">Thème</button>
+    </header>
+
+    <section class="hero glass">
+      <h1>Infrastructure Web Stylée</h1>
+      <p>Déployée avec Ansible: Nginx • HAProxy • MySQL</p>
+      <div class="actions">
+        <a class="btn primary" href="#status">Voir le statut</a>
+        <a class="btn" href="{{ haproxy_stats_url | default('http://localhost:8404') }}" target="_blank" rel="noreferrer">Stats HAProxy</a>
+      </div>
+    </section>
+
+    {% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
+    {% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
+
+    <section class="grid" aria-labelledby="arch-title">
+      <h2 id="arch-title" style="grid-column:1/-1">Architecture</h2>
+      <article class="card glass">
+        <h3>Load Balancer</h3>
+        <ul class="kv">
+          <li><span>Type</span><code>HAProxy</code></li>
+          <li><span>Balance</span><code>{{ haproxy.balance | default('roundrobin') }}</code></li>
+          <li><span>Stats</span><code>{{ haproxy.stats.bind | default('0.0.0.0:8404') }}</code></li>
+        </ul>
+      </article>
+      <article class="card glass">
+        <h3>Web</h3>
+        <ul class="kv">
+          <li><span>Serveurs</span><code>{{ (groups['web']|default([]))|length }}</code></li>
+          <li><span>Gzip</span><code>{{ _ng.gzip | ternary('on','off') }}</code></li>
+          <li><span>Keepalive</span><code>{{ _ng.keepalive_timeout }}</code></li>
+        </ul>
+      </article>
+      <article class="card glass">
+        <h3>Base de données</h3>
+        <ul class="kv">
+          <li><span>Moteur</span><code>MySQL</code></li>
+          <li><span>Bases</span><code>{{ (_mysql.databases|default([]))|map(attribute='name')|list|join(', ') }}</code></li>
+          <li><span>Users</span><code>{{ (_mysql.users|default([]))|map(attribute='name')|list|join(', ') }}</code></li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="grid" aria-labelledby="cfg-title">
+      <h2 id="cfg-title" style="grid-column:1/-1">Configuration</h2>
+      <article class="card glass">
+        <h3>Environnement</h3>
+        <ul class="kv">
+          <li><span>Env</span><code>{{ env | default('dev') }}</code></li>
+          <li><span>Domaine</span><code>{{ domain | default('example.local') }}</code></li>
+          <li><span>SSL</span><code>{{ (ssl.enabled | default(false)) | ternary('activé','désactivé') }}</code></li>
+          <li><span>Système</span><code>{{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_kernel }})</code></li>
+        </ul>
+      </article>
+      <article class="card glass">
+        <h3>Backends web</h3>
+        <ul class="kv">
+          {% for h in (groups['web']|default([])) %}
+            <li><span>{{ h }}</span><code>id={{ hostvars[h].server_id | default('n/a') }}</code></li>
+          {% endfor %}
+        </ul>
+      </article>
+      <article class="card glass">
+        <h3>MySQL (dev)</h3>
+        {% set db = (_mysql.databases|default([{}]))[0] %}
+        {% set user = (_mysql.users|default([{}]))[0] %}
+        <p>Connexion type:</p>
+        <pre class="code" id="connStr">mysql -h db1 -P 3306 -u {{ user.name | default('user') }} -p {{ db.name | default('db') }}</pre>
+        <div class="controls">
+          <button id="copyConn" class="btn" aria-label="Copier la commande">Copier</button>
+          <button id="togglePwd" class="btn" aria-pressed="false" data-password="{{ user.password | default('') }}">Afficher mot de passe</button>
+          <span class="chip">user=<code>{{ user.name | default('user') }}</code> db=<code>{{ db.name | default('db') }}</code></span>
+        </div>
+      </article>
+    </section>
+
+    <section id="status" class="grid">
+      <article class="card glass">
+        <h3>Backend courant</h3>
+        <ul class="kv">
+          <li><span>Serveur</span><code>{{ inventory_hostname }}</code></li>
+          <li><span>Adresse</span><code>{{ ansible_default_ipv4.address | default('127.0.0.1') }}</code></li>
+          <li><span>Environnement</span><code>{{ env_name | default('dev') }}</code></li>
+          <li><span>Déployé</span><code>{{ ansible_date_time.date }} {{ ansible_date_time.time }}</code></li>
+        </ul>
+      </article>
+
+      <article class="card glass">
+        <h3>Endpoint santé</h3>
+        <p>Test rapide pour vérifier Nginx:</p>
+        <div class="health">
+          <button id="healthBtn" class="btn" aria-label="Tester endpoint santé">Tester /health</button>
+          <span id="healthStatus" class="chip">En attente…</span>
+        </div>
+      </article>
+
+      <article class="card glass">
+        <h3>À propos</h3>
+        <p>Ce site est statique, servi par Nginx, et le load balancer HAProxy répartit sur plusieurs nœuds web.</p>
+        <p>Rafraîchis la page plusieurs fois via le LB pour voir l’alternance des backends.</p>
+      </article>
+    </section>
+
+    <section class="card glass" aria-labelledby="perf-title">
+      <h3 id="perf-title">Performances</h3>
+      <p>Mesures réelles (nœud courant) via <code>/api/metrics</code>: CPU, mémoire, uptime; plus latence <code>/health</code>.</p>
+      <div class="controls">
+        <button id="startBtn" class="btn primary" aria-pressed="false">Démarrer</button>
+        <button id="stopBtn" class="btn" disabled>Arrêter</button>
+        <button id="clearBtn" class="btn">Réinitialiser</button>
+        <span id="stats" class="chip" aria-live="polite">0 pts</span>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr; gap:16px;">
+        <canvas id="latencyChart" width="900" height="220" role="img" aria-label="Latence /health"></canvas>
+        <canvas id="cpuChart" width="900" height="220" role="img" aria-label="CPU %"></canvas>
+        <canvas id="memChart" width="900" height="220" role="img" aria-label="Mémoire %"></canvas>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>© {{ ansible_date_time.year }} — Ansible TP3</span>
+    </footer>
+  </main>
+
+  <script src="/assets/app.js"></script>
+  <pre style="display:none">web: {{ inventory_hostname }} (id={{ (groups['web'] | list).index(inventory_hostname) + 1 }})</pre>
+</body>
+</html>

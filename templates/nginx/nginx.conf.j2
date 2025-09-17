@@ -28,19 +28,5 @@ http {
   access_log /var/log/nginx/access.log;
   error_log /var/log/nginx/error.log;
 
-  server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-
-    location /health {
-      return 200 'ok';
-    }
-
-    location / {
-      return 200 "web: {{ inventory_hostname }} (id={{ hostvars[inventory_hostname].server_id | default('n/a') }})\n";
-    }
-  }
-
   include /etc/nginx/sites-enabled/*;
 }

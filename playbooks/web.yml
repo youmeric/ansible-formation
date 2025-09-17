@@ -19,48 +19,26 @@
             mode: "0644"
           notify: Reload nginx
 
-        - name: Déployer vhosts
-          template:
-            src: "../templates/nginx/vhost.conf.j2"
-            dest: "/etc/nginx/sites-available/default"
-            mode: "0644"
-          notify: Reload nginx
-
-        - name: Activer site par défaut
-          file:
-            src: "/etc/nginx/sites-available/default"
-            dest: "/etc/nginx/sites-enabled/default"
-            state: link
-            force: yes
-          notify: Reload nginx
-
-        - name: Vérifier la config
-          shell: nginx -t
-          register: nginx_test
-          changed_when: false
-
         - name: Redémarrer Nginx si nécessaire
           service:
             name: nginx
             state: started
             enabled: yes
 
-        - name: Validation HTTP
-          uri:
-            url: "http://localhost"
-            return_content: yes
-          register: http_check
-          retries: 5
-          delay: 2
-          until: http_check.status == 200
+    - name: Déployer service de métriques (CPU/RAM)
+      import_tasks: metrics.yml
 
-      rescue:
-        - name: Afficher logs nginx en cas d'échec
-          shell: journalctl -u nginx --no-pager -n 100
-          register: nginx_logs
-          changed_when: false
-        - debug:
-            var: nginx_logs.stdout
+    - name: Inclure le déploiement du site stylé
+      import_tasks: website.yml
+
+    - name: Validation HTTP
+      uri:
+        url: "http://localhost"
+        return_content: yes
+      register: http_check
+      retries: 5
+      delay: 2
+      until: http_check.status == 200
 
   handlers:
     - name: Reload nginx
