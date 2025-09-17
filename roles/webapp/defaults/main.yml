@@ -1,0 +1,19 @@
+# Configuration de l'application
+app_name: "WebApp Formation"
+app_version: "1.0.0"
+app_port: 80
+
+# Configuration PHP (Ubuntu 24.04)
+php_version: "8.3"  # Version par défaut Ubuntu 24.04
+php_packages:
+  - "php{{ php_version }}"
+  - "php{{ php_version }}-fpm"
+  - "php{{ php_version }}-cli"
+  - "php{{ php_version }}-common"
+
+# Configuration nginx
+nginx_user: "www-data"
+nginx_document_root: "/var/www/{{ app_name | lower | replace(' ', '-') }}"
+
+# Informations
+admin_email: "admin@formation.local"

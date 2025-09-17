@@ -1,0 +1,144 @@
+
+# =========================================
+#  ÉTAPE 1 : Messages et préparation
+# =========================================
+
+- name: "[INFO] Début installation {{ app_name }}"
+  debug:
+    msg: "🚀 Installation de {{ app_name }} version {{ app_version }} sur {{ inventory_hostname }}"
+
+- name: "📦 Mise à jour du cache APT"
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: [packages]
+
+# =========================================
+#  ÉTAPE 2 : Installation (Ubuntu 24.04)
+# =========================================
+
+- name: "🌐 Installation de nginx"
+  apt:
+    name: nginx
+    state: present
+  notify: start nginx
+  tags: [packages, nginx]
+
+- name: "🐘 Installation de PHP {{ php_version }}"
+  apt:
+    name: "{{ php_packages }}"
+    state: present
+  notify: start php-fpm
+  tags: [packages, php]
+
+# =========================================
+#  ÉTAPE 3 : Création des répertoires
+# =========================================
+
+- name: "📁 Création du répertoire de l'application"
+  file:
+    path: "{{ nginx_document_root }}"
+    state: directory
+    owner: "{{ nginx_user }}"
+    group: "{{ nginx_user }}"
+    mode: '0755'
+  tags: [directories]
+
+- name: "📁 Création du répertoire logs"
+  file:
+    path: "{{ nginx_document_root }}/logs"
+    state: directory
+    owner: "{{ nginx_user }}"
+    group: "{{ nginx_user }}"
+    mode: '0755'
+  tags: [directories]
+
+# =========================================
+#  ÉTAPE 4 : Secrets (Révision Vault)
+# =========================================
+
+- name: "🔐 Chargement des secrets"
+  include_vars: "{{ playbook_dir }}/secrets.yml"
+  tags: [secrets]
+
+# =========================================
+#  ÉTAPE 5 : Déploiement application
+# =========================================
+
+- name: "🏠 Déploiement de la page PHP principale"
+  template:
+    src: index.php.j2
+    dest: "{{ nginx_document_root }}/index.php"
+    owner: "{{ nginx_user }}"
+    group: "{{ nginx_user }}"
+    mode: '0644'
+  tags: [app, deploy]
+
+- name: "🎨 Déploiement du CSS"
+  copy:
+    src: app.css
+    dest: "{{ nginx_document_root }}/app.css"
+    owner: "{{ nginx_user }}"
+    group: "{{ nginx_user }}"
+    mode: '0644'
+  tags: [app, deploy]
+
+# =========================================
+#  ÉTAPE 6 : Configuration nginx
+# =========================================
+
+- name: "⚙️ Configuration du virtual host nginx"
+  template:
+    src: nginx-vhost.j2
+    dest: "/etc/nginx/sites-available/{{ app_name | lower | replace(' ', '-') }}"
+    backup: yes
+  notify: reload nginx
+  tags: [nginx, config]
+
+- name: "🔗 Activation du virtual host"
+  file:
+    src: "/etc/nginx/sites-available/{{ app_name | lower | replace(' ', '-') }}"
+    dest: "/etc/nginx/sites-enabled/{{ app_name | lower | replace(' ', '-') }}"
+    state: link
+  notify: reload nginx
+  tags: [nginx, config]
+
+- name: "❌ Désactivation du site par défaut"
+  file:
+    path: "/etc/nginx/sites-enabled/default"
+    state: absent
+  notify: reload nginx
+  tags: [nginx, config]
+
+# =========================================
+#  ÉTAPE 7 : Démarrage des services
+# =========================================
+
+- name: "🌐 Démarrage de nginx"
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  tags: [services]
+
+- name: "🐘 Démarrage de PHP-FPM"
+  service:
+    name: "php{{ php_version }}-fpm"
+    state: started
+    enabled: yes
+  tags: [services]
+
+- name: "[SUCCESS] ✅ Application déployée avec succès"
+  debug:
+    msg: "🎉 {{ app_name }} est accessible sur le port {{ app_port }}"
+
+
+# =========================================
+#  ÉTAPE 8 : Monitoring basique
+# =========================================
+- name: "📊 Déploiement script monitoring"
+  template:
+    src: ../files/monitor.sh
+    dest: /usr/local/bin/webapp-monitor.sh
+    mode: '0755'
+  tags: [monitoring]

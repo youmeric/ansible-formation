@@ -1,0 +1,37 @@
+# Configuration nginx pour {{ app_name }}
+# Généré automatiquement par Ansible
+
+server {
+    listen {{ app_port }};
+    server_name localhost;
+    
+    root {{ nginx_document_root }};
+    index index.php index.html;
+    
+    # Logs
+    access_log /var/log/nginx/{{ app_name | lower | replace(' ', '-') }}-access.log;
+    error_log /var/log/nginx/{{ app_name | lower | replace(' ', '-') }}-error.log;
+    
+    # PHP
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php{{ php_version }}-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+    
+    # Fichiers statiques
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+    
+    # Page par défaut
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+    
+    # Headers informatifs
+    add_header X-Served-By "{{ inventory_hostname }}";
+    add_header X-App-Name "{{ app_name }}";
+}

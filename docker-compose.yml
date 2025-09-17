@@ -1,0 +1,46 @@
+services:
+  web1:
+    image: ubuntu:24.04
+    container_name: web1
+    hostname: web1
+    command: >
+      /bin/bash -c "
+      apt update && 
+      apt install -y openssh-server python3 sudo curl &&
+      useradd -m -s /bin/bash ansible &&
+      echo 'ansible:ansible' | chpasswd &&
+      echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers &&
+      sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh start &&
+      sleep infinity
+      "
+    ports:
+      - "2221:22"
+      - "8081:80"
+    networks:
+      - webapp-net
+
+  web2:
+    image: ubuntu:24.04
+    container_name: web2
+    hostname: web2
+    command: >
+      /bin/bash -c "
+      apt update && 
+      apt install -y openssh-server python3 sudo curl &&
+      useradd -m -s /bin/bash ansible &&
+      echo 'ansible:ansible' | chpasswd &&
+      echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers &&
+      sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config &&
+      service ssh start &&
+      sleep infinity
+      "
+    ports:
+      - "2222:22"
+      - "8082:80"
+    networks:
+      - webapp-net
+
+networks:
+  webapp-net:
+    driver: bridge

@@ -1,0 +1,43 @@
+---
+- name: "📚 RÉVISION - Playbook simple"
+  hosts: webservers
+  become: yes
+  
+  vars:
+    message_du_jour: "Formation Ansible Jour 3"
+    packages_requis:
+      - curl
+      - wget
+      - htop
+  
+  tasks:
+    - name: "📢 Message de bienvenue"
+      debug:
+        msg: "Bonjour ! Nous sommes le {{ ansible_date_time.date }} et nous travaillons sur {{ message_du_jour }}"
+    
+    - name: "📦 Installation des paquets de base"
+      apt:
+        name: "{{ packages_requis }}"
+        state: present
+        update_cache: yes
+      tags: [packages]
+    
+    - name: "📄 Création d'un fichier de test"
+      copy:
+        content: |
+          Serveur: {{ inventory_hostname }}
+          Date: {{ ansible_date_time.iso8601 }}
+          Utilisateur: {{ ansible_user }}
+          Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}
+        dest: /tmp/infos-serveur.txt
+        mode: '0644'
+      tags: [files]
+    
+    - name: "✅ Vérification du fichier créé"
+      command: cat /tmp/infos-serveur.txt
+      register: contenu_fichier
+      changed_when: false
+    
+    - name: "📋 Affichage du contenu"
+      debug:
+        msg: "{{ contenu_fichier.stdout_lines }}"

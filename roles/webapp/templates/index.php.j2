@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Dashboard</title>
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 {{ app_name }}</h1>
+            <p class="version">Version {{ app_version }}</p>
+            <p class="server">Serveur: {{ inventory_hostname }}</p>
+        </header>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>📊 Informations Serveur</h2>
+                <table>
+                    <tr>
+                        <td><strong>Nom d'hôte :</strong></td>
+                        <td><?php echo gethostname(); ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Adresse IP :</strong></td>
+                        <td><?php echo $_SERVER['SERVER_ADDR'] ?? '127.0.0.1'; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>OS :</strong></td>
+                        <td><?php echo PHP_OS; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>PHP :</strong></td>
+                        <td><?php echo PHP_VERSION; ?></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Date/Heure :</strong></td>
+                        <td><?php echo date('d/m/Y H:i:s'); ?></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h2>⚙️ Configuration Ansible</h2>
+                <table>
+                    <tr>
+                        <td><strong>Application :</strong></td>
+                        <td>{{ app_name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Version :</strong></td>
+                        <td>{{ app_version }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Port :</strong></td>
+                        <td>{{ app_port }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Utilisateur web :</strong></td>
+                        <td>{{ nginx_user }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Répertoire :</strong></td>
+                        <td>{{ nginx_document_root }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h2>🔐 Secrets et Sécurité</h2>
+                <p><strong>API Key :</strong> {{ api_key[:6] }}***</p>
+                <p><strong>Message secret :</strong> {{ secret_message }}</p>
+                <p><strong>Admin :</strong> {{ admin_email }}</p>
+                <small>🔒 Secrets protégés par Ansible Vault</small>
+            </div>
+            
+            <div class="card">
+                <h2>💾 Services</h2>
+                <div class="services">
+                    <?php
+                    $services = [
+                        'nginx' => exec('pgrep nginx | wc -l'),
+                        'php-fpm' => exec('pgrep php-fpm | wc -l')
+                    ];
+                    
+                    foreach ($services as $service => $count) {
+                        $status = (intval($count) > 0) ? '✅ Actif' : '❌ Arrêté';
+                        echo "<p><strong>$service :</strong> $status ($count processus)</p>";
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>🎓 Déployé avec Ansible par les étudiants 4ème année</p>
+            <p><strong>Formation Jour 3 - Rôles et Sécurité</strong></p>
+        </footer>
+    </div>
+</body>
+</html>
+
+<?php
+// Log simple
+$log = date('Y-m-d H:i:s') . " - Visite de " . $_SERVER['REMOTE_ADDR'] . "\n";
+file_put_contents('{{ nginx_document_root }}/logs/visits.log', $log, FILE_APPEND);
+?>

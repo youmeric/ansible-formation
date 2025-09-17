@@ -1,0 +1,65 @@
+---
+- name: "🚀 Déploiement WebApp avec Rôles et Sécurité"
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Personnalisation pour ce déploiement
+    app_name: "Formation DevOps"
+    app_version: "3.0.0"
+    admin_email: "formation@ansible.local"
+  
+  pre_tasks:
+    - name: "🔍 Vérification initiale"
+      ping:
+      register: ping_result
+      
+    - name: "📊 Informations du serveur"
+      debug:
+        msg: |
+          🖥️ Serveur: {{ inventory_hostname }}
+          🐧 OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          🏗️ Architecture: {{ ansible_architecture }}
+          🌐 IP: {{ ansible_default_ipv4.address | default('Non définie') }}
+      
+    - name: "⏳ Attente serveur prêt"
+      wait_for_connection:
+        timeout: 30
+  
+  roles:
+    - role: webapp
+      tags: [webapp]
+  
+  post_tasks:
+    - name: "🧪 Test nginx écoute"
+      wait_for:
+        port: "{{ app_port }}"
+        host: "127.0.0.1"
+        timeout: 10
+      register: nginx_port_test
+      
+    - name: "🧪 Test page web"
+      uri:
+        url: "http://127.0.0.1:{{ app_port }}"
+        method: GET
+        status_code: 200
+      register: webapp_test
+      retries: 3
+      delay: 2
+      
+    - name: "📋 Résumé final"
+      debug:
+        msg: |
+          🎉 DÉPLOIEMENT TERMINÉ !
+          ========================
+          📱 Application: {{ app_name }} v{{ app_version }}
+          🖥️ Serveur: {{ inventory_hostname }}
+          🌐 Test local: {{ webapp_test.status == 200 | ternary('✅ Succès', '❌ Échec') }}
+          
+          🌍 URLs pour tester:
+          - web1: http://localhost:8081
+          - web2: http://localhost:8082
+          
+          📁 Fichiers: {{ nginx_document_root }}
+
