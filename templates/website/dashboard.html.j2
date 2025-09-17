@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard DevOps — TP3</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Dashboard DevOps — TP3</h1>
+      <p>Infos système, réseau, Nginx, HAProxy, stockage, DB</p>
+      <p><a class="btn" href="/">← Retour accueil</a></p>
+    </header>
+
+    {% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
+    {% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
+
+    <section class="grid">
+      <article class="card">
+        <h2>Système</h2>
+        <ul class="kv">
+          <li><span>Hôte</span><code>{{ inventory_hostname }}</code></li>
+          <li><span>OS</span><code>{{ ansible_distribution }} {{ ansible_distribution_version }}</code></li>
+          <li><span>Noyau</span><code>{{ ansible_kernel }}</code></li>
+          <li><span>CPU</span><code>{{ ansible_processor_vcpus | default(ansible_processor_count) }} vCPU</code></li>
+          <li><span>RAM</span><code>{{ (ansible_memtotal_mb|default(0)) }} MB</code></li>
+          <li><span>Uptime</span><code>{{ ansible_uptime_seconds | default(0) }} s</code></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Réseau</h2>
+        <ul class="kv">
+          <li><span>IP par défaut</span><code>{{ ansible_default_ipv4.address | default('n/a') }}</code></li>
+          <li><span>Interface</span><code>{{ ansible_default_ipv4.interface | default('n/a') }}</code></li>
+          <li><span>Passerelle</span><code>{{ ansible_default_ipv4.gateway | default('n/a') }}</code></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Nginx</h2>
+        <ul class="kv">
+          <li><span>Workers</span><code>{{ _ng.worker_processes }}</code></li>
+          <li><span>Connexions</span><code>{{ _ng.worker_connections }}</code></li>
+          <li><span>Keepalive</span><code>{{ _ng.keepalive_timeout }}s</code></li>
+          <li><span>Gzip</span><code>{{ _ng.gzip | ternary('on','off') }}</code></li>
+          <li><span>Health</span><code>/health → 200</code></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>HAProxy</h2>
+        <ul class="kv">
+          <li><span>Algo</span><code>{{ haproxy.balance | default('roundrobin') }}</code></li>
+          <li><span>Stats</span><code>{{ haproxy.stats.bind | default('0.0.0.0:8404') }}</code></li>
+          <li><span>Backends</span><code>{{ (groups['web']|default([]))|length }}</code></li>
+          <li><span>Check</span><code>httpchk GET /health</code></li>
+        </ul>
+        <p><a class="btn" href="{{ haproxy_stats_url | default('http://localhost:8404') }}" target="_blank">Ouvrir les stats</a></p>
+      </article>
+
+      <article class="card">
+        <h2>Stockage</h2>
+        <ul class="kv">
+          <li><span>/</span><code>{{ ansible_mounts | selectattr('mount','equalto','/') | map(attribute='size_total') | list | first | default(0) }} bytes</code></li>
+          <li><span>Logs Nginx</span><code>/var/log/nginx</code></li>
+          <li><span>Racine site</span><code>/var/www/app</code></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Base MySQL</h2>
+        {% set db = (_mysql.databases|default([{}]))[0] %}
+        {% set user = (_mysql.users|default([{}]))[0] %}
+        <ul class="kv">
+          <li><span>Hôte</span><code>db1:3306</code></li>
+          <li><span>DB</span><code>{{ db.name | default('appdb') }}</code></li>
+          <li><span>Utilisateur</span><code>{{ user.name | default('appuser') }}</code></li>
+        </ul>
+        <pre class="code">mysql -h db1 -P 3306 -u {{ user.name | default('appuser') }} -p {{ db.name | default('appdb') }}</pre>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <small>© {{ ansible_date_time.year }} — TP3</small>
+    </footer>
+  </main>
+</body>
+</html>

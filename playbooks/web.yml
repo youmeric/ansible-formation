@@ -25,9 +25,6 @@
             state: started
             enabled: yes
 
-    - name: Déployer service de métriques (CPU/RAM)
-      import_tasks: metrics.yml
-
     - name: Inclure le déploiement du site stylé
       import_tasks: website.yml
 

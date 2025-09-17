@@ -16,6 +16,14 @@
     group: www-data
     mode: "0644"
 
+- name: Déployer dashboard DevOps
+  template:
+    src: "../templates/website/dashboard.html.j2"
+    dest: "/var/www/app/dashboard.html"
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
 - name: Déployer CSS
   template:
     src: "../templates/website/assets/styles.css"
@@ -24,15 +32,7 @@
     group: www-data
     mode: "0644"
 
-- name: Déployer JS
-  template:
-    src: "../templates/website/assets/app.js"
-    dest: "/var/www/app/assets/app.js"
-    owner: www-data
-    group: www-data
-    mode: "0644"
-
-- name: Déployer vhost Nginx stylé
+- name: Déployer vhost Nginx
   template:
     src: "../templates/nginx/nginx_app.conf.j2"
     dest: "/etc/nginx/sites-available/app.conf"
@@ -45,7 +45,7 @@
     state: absent
   notify: Reload nginx
 
-- name: Activer le site stylé
+- name: Activer le site
   file:
     src: "/etc/nginx/sites-available/app.conf"
     dest: "/etc/nginx/sites-enabled/app.conf"
