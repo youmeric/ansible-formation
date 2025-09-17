@@ -1,0 +1,43 @@
+---
+- name: S'assurer que python3 est installé
+  apt:
+    name: python3
+    state: present
+    update_cache: yes
+
+- name: Créer dossier des métriques
+  file:
+    path: /opt/metrics
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Déployer serveur de métriques (CPU/RAM)
+  template:
+    src: "../templates/metrics/metrics_server.py.j2"
+    dest: "/opt/metrics/metrics_server.py"
+    mode: "0755"
+
+- name: Vérifier disponibilité HTTP du serveur de métriques
+  uri:
+    url: http://127.0.0.1:9100/metrics
+    return_content: no
+    status_code: 200
+    timeout: 1
+  register: metrics_http
+  failed_when: false
+  changed_when: false
+
+- name: Démarrer le serveur de métriques si nécessaire
+  shell: nohup python3 /opt/metrics/metrics_server.py >/var/log/metrics_server.log 2>&1 &
+  when: (metrics_http.status | default(0)) != 200
+  async: 0
+  poll: 0
+
+- name: Attendre l'ouverture du port 9100
+  wait_for:
+    host: 127.0.0.1
+    port: 9100
+    timeout: 5
+  when: (metrics_http.status | default(0)) != 200

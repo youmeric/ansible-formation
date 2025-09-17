@@ -25,6 +25,9 @@
             state: started
             enabled: yes
 
+    - name: Démarrer service de métriques
+      import_tasks: metrics.yml
+
     - name: Inclure le déploiement du site stylé
       import_tasks: website.yml
 

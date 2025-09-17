@@ -8,6 +8,10 @@
     mode: "0755"
     recurse: true
 
+- name: Collecter versions paquets (nginx)
+  package_facts:
+    manager: auto
+
 - name: Déployer index HTML (dynamique)
   template:
     src: "../templates/website/index.html.j2"

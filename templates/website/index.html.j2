@@ -3,85 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ site_title | default('TP3 — Stack Web') }}</title>
+  <title>TP3 — Dashboard</title>
+  <meta http-equiv="refresh" content="0; url=/dashboard.html">
   <link rel="stylesheet" href="/assets/styles.css">
+  <style>body{display:flex;align-items:center;justify-content:center;min-height:100vh}.card{padding:20px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}</style>
+  <script>window.location.replace('/dashboard.html');</script>
+  <noscript>
+    <meta http-equiv="refresh" content="0;url=/dashboard.html" />
+  </noscript>
 </head>
 <body>
-  <main class="container">
-    <header class="header">
-      <h1>{{ site_title | default('TP3 — Stack Web') }}</h1>
-      <p>HAProxy • Nginx x2 • MySQL — déployés via Ansible</p>
-      <p><a class="btn" href="/dashboard.html">Ouvrir le dashboard DevOps</a></p>
-    </header>
-
-    {% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
-    {% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
-
-    <section class="grid">
-      <article class="card">
-        <h2>Backend courant</h2>
-        <ul class="kv">
-          <li><span>Serveur</span><code>{{ inventory_hostname }}</code></li>
-          <li><span>Adresse</span><code>{{ ansible_default_ipv4.address | default('127.0.0.1') }}</code></li>
-          <li><span>Environnement</span><code>{{ env | default('dev') }}</code></li>
-          <li><span>Date</span><code>{{ ansible_date_time.date }} {{ ansible_date_time.time }}</code></li>
-        </ul>
-        <div class="row">
-          <button id="healthBtn" class="btn">Tester /health</button>
-          <span id="healthStatus" class="chip">En attente…</span>
-        </div>
-      </article>
-
-      <article class="card">
-        <h2>Architecture</h2>
-        <ul class="kv">
-          <li><span>LB</span><code>HAProxy ({{ haproxy.balance | default('roundrobin') }})</code></li>
-          <li><span>Stats</span><code>{{ haproxy.stats.bind | default('0.0.0.0:8404') }}</code></li>
-          <li><span>Web</span><code>{{ (groups['web']|default([]))|length }} nœud(s), gzip={{ _ng.gzip | ternary('on','off') }}</code></li>
-          <li><span>DB</span><code>MySQL</code></li>
-        </ul>
-        <p><a class="link" href="{{ haproxy_stats_url | default('http://localhost:8404') }}" target="_blank">Ouvrir les stats HAProxy</a></p>
-      </article>
-
-      <article class="card">
-        <h2>Backends web</h2>
-        <ul class="kv">
-          {% for h in (groups['web']|default([])) %}
-            <li><span>{{ h }}</span><code>id={{ hostvars[h].server_id | default('n/a') }}</code></li>
-          {% endfor %}
-        </ul>
-      </article>
-
-      <article class="card">
-        <h2>MySQL (dev)</h2>
-        {% set db = (_mysql.databases|default([{}]))[0] %}
-        {% set user = (_mysql.users|default([{}]))[0] %}
-        <pre class="code" id="connStr">mysql -h db1 -P 3306 -u {{ user.name | default('user') }} -p {{ db.name | default('db') }}</pre>
-        <div class="row">
-          <button id="copyConn" class="btn">Copier</button>
-          <button id="togglePwd" class="btn" aria-pressed="false" data-password="{{ user.password | default('') }}">Afficher mdp</button>
-        </div>
-      </article>
-    </section>
-
-    <footer class="footer">
-      <small>© {{ ansible_date_time.year }} — TP3</small>
-    </footer>
-  </main>
-
-  <script>
-  const $ = s => document.querySelector(s);
-  const statusEl = $('#healthStatus');
-  $('#healthBtn')?.addEventListener('click', async () => {
-    statusEl.textContent = 'Test…'; statusEl.className='chip warn';
-    try { const r = await fetch('/health',{cache:'no-store'}); if(r.ok){statusEl.textContent='OK'; statusEl.className='chip ok';}
-      else {statusEl.textContent='Erreur '+r.status; statusEl.className='chip err';} }
-    catch{ statusEl.textContent='Hors ligne'; statusEl.className='chip err'; }
-  });
-  const copyBtn = document.getElementById('copyConn');
-  copyBtn?.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(document.getElementById('connStr').textContent||''); copyBtn.textContent='Copié'; setTimeout(()=>copyBtn.textContent='Copier',1200);}catch{}});
-  const togglePwdBtn=document.getElementById('togglePwd');
-  togglePwdBtn?.addEventListener('click',()=>{ const pass=togglePwdBtn.getAttribute('data-password')||''; const on=togglePwdBtn.getAttribute('aria-pressed')==='true'; togglePwdBtn.setAttribute('aria-pressed', String(!on)); if(!on){ togglePwdBtn.textContent='Masquer mdp'; togglePwdBtn.insertAdjacentHTML('afterend',`<span class="chip" id="pwdView">mdp=<code>${pass||'(non défini)'}</code></span>`);} else { togglePwdBtn.textContent='Afficher mdp'; document.getElementById('pwdView')?.remove(); }});
-  </script>
+  <div class="card">
+    <p>Redirection vers le <a href="/dashboard.html">dashboard</a>…</p>
+  </div>
 </body>
 </html>

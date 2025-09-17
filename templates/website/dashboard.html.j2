@@ -7,17 +7,48 @@
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
+  {% set _gib = 1073741824 %}
+  {% set _uptime = (ansible_uptime_seconds | default(0) | int) %}
+  {% set _d = (_uptime // 86400) %}
+  {% set _h = ((_uptime % 86400) // 3600) %}
+  {% set _m = ((_uptime % 3600) // 60) %}
+
+  {% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
+  {% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
+
+  {% set _mnt = (ansible_mounts | default([]) | selectattr('mount','equalto','/') | list | first | default({})) %}
+  {% set _disk_total = (_mnt.size_total | default(0) | int) %}
+  {% set _disk_avail = (_mnt.size_available | default(0) | int) %}
+  {% set _disk_used = (_disk_total - _disk_avail) if _disk_total else 0 %}
   <main class="container">
     <header class="header">
       <h1>Dashboard DevOps — TP3</h1>
       <p>Infos système, réseau, Nginx, HAProxy, stockage, DB</p>
-      <p><a class="btn" href="/">← Retour accueil</a></p>
+      <p><a class="btn" href="/">← Accueil</a> <a class="btn" href="/health" target="_blank">/health</a> <a class="btn" href="{{ haproxy_stats_url | default('http://localhost:8404') }}" target="_blank">Stats HAProxy</a></p>
     </header>
-
-    {% set _ng = (nginx_defaults | default({})) | combine(nginx | default({}), recursive=True) %}
-    {% set _mysql = (mysql_defaults | default({})) | combine(mysql | default({}), recursive=True) %}
+    <article class="card full-bleed perf-hero">
+        <h2>Performances</h2>
+        <div class="perf-wrap">
+          <div class="card perf-panel">
+            <h3>CPU</h3>
+            <div id="cpuVal" class="chip">-- %</div>
+            <canvas id="cpuChart" class="responsive"></canvas>
+          </div>
+          <div class="card perf-panel">
+            <h3>Mémoire</h3>
+            <div id="memVal" class="chip">-- %</div>
+            <canvas id="memChart" class="responsive"></canvas>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <button id="start" class="btn">Démarrer</button>
+          <button id="stop" class="btn" disabled>Arrêter</button>
+          <span id="perfStatus" class="chip">Arrêt</span>
+        </div>
+    </article>
 
     <section class="grid">
+
       <article class="card">
         <h2>Système</h2>
         <ul class="kv">
@@ -26,7 +57,9 @@
           <li><span>Noyau</span><code>{{ ansible_kernel }}</code></li>
           <li><span>CPU</span><code>{{ ansible_processor_vcpus | default(ansible_processor_count) }} vCPU</code></li>
           <li><span>RAM</span><code>{{ (ansible_memtotal_mb|default(0)) }} MB</code></li>
-          <li><span>Uptime</span><code>{{ ansible_uptime_seconds | default(0) }} s</code></li>
+          <li><span>Uptime</span><code>
+            {% if _d %}{{ _d }}j {% endif %}{% if _h %}{{ _h }}h {% endif %}{% if _m %}{{ _m }}m{% else %}{{ _uptime }}s{% endif %}
+          </code></li>
         </ul>
       </article>
 
@@ -46,6 +79,7 @@
           <li><span>Connexions</span><code>{{ _ng.worker_connections }}</code></li>
           <li><span>Keepalive</span><code>{{ _ng.keepalive_timeout }}s</code></li>
           <li><span>Gzip</span><code>{{ _ng.gzip | ternary('on','off') }}</code></li>
+          <li><span>Version</span><code>{{ ansible_facts.packages['nginx'][0].version if (ansible_facts.packages and ansible_facts.packages.get('nginx')) else 'n/a' }}</code></li>
           <li><span>Health</span><code>/health → 200</code></li>
         </ul>
       </article>
@@ -64,10 +98,21 @@
       <article class="card">
         <h2>Stockage</h2>
         <ul class="kv">
-          <li><span>/</span><code>{{ ansible_mounts | selectattr('mount','equalto','/') | map(attribute='size_total') | list | first | default(0) }} bytes</code></li>
+          <li><span>/ total</span><code>{{ ('%0.1f' % ((_disk_total / _gib) if _disk_total else 0.0)) }} GiB</code></li>
+          <li><span>/ utilisé</span><code>{{ ('%0.1f' % ((_disk_used / _gib) if _disk_total else 0.0)) }} GiB</code></li>
+          <li><span>/ libre</span><code>{{ ('%0.1f' % ((_disk_avail / _gib) if _disk_total else 0.0)) }} GiB</code></li>
           <li><span>Logs Nginx</span><code>/var/log/nginx</code></li>
           <li><span>Racine site</span><code>/var/www/app</code></li>
         </ul>
+      </article>
+
+      <article class="card">
+        <h2>Liens utiles</h2>
+        <p>
+          <a class="btn" href="/health" target="_blank">/health</a>
+          <a class="btn" href="/" target="_blank">Accueil</a>
+          <a class="btn" href="{{ haproxy_stats_url | default('http://localhost:8404') }}" target="_blank">Stats HAProxy</a>
+        </p>
       </article>
 
       <article class="card">
@@ -87,5 +132,38 @@
       <small>© {{ ansible_date_time.year }} — TP3</small>
     </footer>
   </main>
+  <script>
+  const $=s=>document.querySelector(s);
+  function drawLine(ctx, pts, color, label) {
+    const w=ctx.canvas.width,h=ctx.canvas.height; ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.beginPath(); ctx.moveTo(40,10); ctx.lineTo(40,h-30); ctx.lineTo(w-10,h-30); ctx.stroke();
+    if(!pts.length) return; const maxY=Math.max(50,...pts.map(p=>p.y)); const data=pts.slice(-200);
+    const dx=(w-60)/Math.max(1,data.length-1); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    data.forEach((p,i)=>{ const x=40+i*dx; const y=(h-30)-(p.y/maxY)*(h-40); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='12px system-ui'; ctx.fillText(label,8,18); ctx.fillText(String(Math.round(maxY)),8,32);
+  }
+  const cpuCtx=$('#cpuChart')?.getContext('2d'); const memCtx=$('#memChart')?.getContext('2d');
+  let running=false; const cpuPts=[]; const memPts=[];
+  function resizeCanvas(ctx, displayHeight=180){
+    if(!ctx) return; const r=window.devicePixelRatio||1; const el=ctx.canvas; const cssW=el.clientWidth||360; el.width=Math.floor(cssW*r); el.height=Math.floor(displayHeight*r);
+  }
+  function redraw(){ drawLine(cpuCtx,cpuPts,'#60a5fa','%'); drawLine(memCtx,memPts,'#f59e0b','%'); }
+  async function poll(){
+    if(!running) return; try{
+      const r=await fetch('/api/metrics?ts='+Date.now(),{cache:'no-store'}); if(r.ok){
+        const m=await r.json(); const cpu=m.cpu_percent||0; const mem=m.mem?.used_percent||0;
+        cpuPts.push({x:Date.now(),y:cpu}); memPts.push({x:Date.now(),y:mem});
+        redraw();
+        $('#cpuVal').textContent=cpu.toFixed(1)+' %'; $('#memVal').textContent=mem.toFixed(1)+' %';
+        $('#perfStatus').textContent='En cours';
+      } else { $('#perfStatus').textContent='Erreur '+r.status; }
+    } catch(e){ $('#perfStatus').textContent='Hors ligne'; }
+    setTimeout(poll, 800);
+  }
+  $('#start')?.addEventListener('click',()=>{ if(running) return; running=true; $('#stop').disabled=false; poll(); });
+  $('#stop')?.addEventListener('click',()=>{ running=false; $('#stop').disabled=true; $('#perfStatus').textContent='Arrêt'; });
+  window.addEventListener('resize',()=>{ resizeCanvas(cpuCtx); resizeCanvas(memCtx); redraw(); });
+  document.addEventListener('DOMContentLoaded',()=>{ resizeCanvas(cpuCtx); resizeCanvas(memCtx); running=true; $('#stop').disabled=false; poll(); });
+  </script>
 </body>
 </html>
