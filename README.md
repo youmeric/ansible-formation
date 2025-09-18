@@ -35,3 +35,10 @@ Appliquer la configuration :
 ```bash
 terraform apply
 ```
+
+### Détruire les ressources
+
+Pour supprimer toutes les ressources créées par Terraform :
+```bash
+terraform destroy
+```
