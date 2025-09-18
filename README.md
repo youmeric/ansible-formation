@@ -1,4 +1,4 @@
-# Rapport TP1 — Ansible (synthèse évaluateur)
+# Rapport TP1 — Ansible
 
 Objectif: installer/configurer Ansible, déployer un lab Docker (4 hôtes SSH), réaliser des commandes ad‑hoc et valider la connectivité et la collecte de facts.
 
