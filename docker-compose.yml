@@ -1,0 +1,48 @@
+services:
+  # Serveurs web
+  web1:
+    image: ubuntu:24.04
+    container_name: ansible-web1
+    hostname: web1
+    command: /bin/bash -c "apt update && apt install -y openssh-server python3 sudo && useradd -m -s /bin/bash ansible && echo 'ansible:ansible' | chpasswd && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && service ssh start && tail -f /dev/null && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+    ports:
+      - "2221:22"
+    networks:
+      - ansible-lab
+
+  web2:
+    image: ubuntu:24.04
+    container_name: ansible-web2
+    hostname: web2
+    command: /bin/bash -c "apt update && apt install -y openssh-server python3 sudo && useradd -m -s /bin/bash ansible && echo 'ansible:ansible' | chpasswd && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && service ssh start && tail -f /dev/null && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+    ports:
+      - "2222:22"
+    networks:
+      - ansible-lab
+
+  # Serveur base de données
+  db1:
+    image: ubuntu:24.04
+    container_name: ansible-db1
+    hostname: db1
+    command: /bin/bash -c "apt update && apt install -y openssh-server python3 sudo && useradd -m -s /bin/bash ansible && echo 'ansible:ansible' | chpasswd && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && service ssh start && tail -f /dev/null && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+    ports:
+      - "2223:22"
+    networks:
+      - ansible-lab
+
+  # Load balancer
+  lb1:
+    image: ubuntu:24.04
+    container_name: ansible-lb1
+    hostname: lb1
+    command: /bin/bash -c "apt update && apt install -y openssh-server python3 sudo && useradd -m -s /bin/bash ansible && echo 'ansible:ansible' | chpasswd && echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && service ssh start && tail -f /dev/null && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
+    ports:
+      - "2224:22"
+      - "8080:80"
+    networks:
+      - ansible-lab
+
+networks:
+  ansible-lab:
+    driver: bridge
